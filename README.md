@@ -259,22 +259,3 @@ composeTestRule.setContent {
     MainScreen(onNavigateToDetail = { })
 }
 ```
-
----
-
-## Resumen
-
-| # | Archivo | Línea | Error |
-|---|---------|-------|-------|
-| 1 | `domain/model/Episode.kt` | 13–15 | `init` fuera de la clase |
-| 2 | `data/repository/EpisodeRepositoryImpl.kt` | 23 | `override` no coincide con la interfaz |
-| 3 | `data/repository/EpisodeRepositoryImpl.kt` | imports | Falta `import SimpsonsApi` |
-| 4 | `di/DataModule.kt` | 34–38 | Falta `.baseUrl()` en Retrofit |
-| 5 | `main/MainScreen.kt` | 119 | `LazyRow` en vez de `LazyColumn` |
-| 6 | `gradle.properties` | 32 | JDK hardcodeado con ruta absoluta |
-| 7 | `data/local/entity/EpisodeEntity.kt` | 7 | `class` en vez de `data class` |
-| 8 | `data/local/entity/RemoteKeyEntity.kt` | 7 | `class` en vez de `data class` |
-| 9 | `domain/repository/EpisodeRepository.kt` | 8 | Método en snake_case |
-| 10 | `data/remote/EpisodeRemoteMediator.kt` | 106 | URL completa en `@GET` |
-| 11 | `AppNavigation.kt` | 9–10 | Imports wildcard inútiles |
-| 12 | `androidTest/.../MainScreenTest.kt` | 18 | Parámetro de tipo incorrecto en `MainScreen()` |
