@@ -1,8 +1,238 @@
 2do Parcial - Parte Practica
-Que se solicita:
 
-El codigo tiene 10 errores. Recae en usted analizar que es un error dentro del codigo.
-Los Alumnos tendran que forkear este repo como propio, hacer un issue desde Github con Comentarios refiriendo en que linea esta el error, y como se debe solucionar.
-La respuesta sera con el link a ese Fork, y adentro deben estar los issues. Los profesores tenemos que poder ingresar al mismo. Recae en los alumnos asegurarse de que los profesores puedan ingresar.
-Tambien pueden editar el Archivo Readme y poner los resultados dentro de sus propios forks.
-https://github.com/ExBattou/SimpsonsApp
+# SimpsonsApp — Errores encontrados
+
+**Alumno:** Panigatti Gianluca  
+**Errores encontrados:** 11 (10 de código + 1 de configuración)
+
+---
+
+## Error 1 — Bloque `init` fuera de la clase
+**Archivo:** `domain/model/Episode.kt` — líneas 13–15
+
+**Código:**
+```kotlin
+data class Episode(
+    val id: Int,
+    ...
+)
+
+init {    // está afuera de la clase
+    return Episode; //NO BORRAR
+}
+```
+
+El bloque `init` en Kotlin solo va adentro de una clase, no afuera. Como está puesto acá, no compila. Encima `return Episode;` tampoco es código Kotlin válido: `init` no puede tener `return` y los puntos y coma no se usan.
+
+**Fix:** borrar las líneas 13 a 15 enteras.
+
+---
+
+## Error 2 — `class` en vez de `data class` en `EpisodeEntity`
+**Archivo:** `data/local/entity/EpisodeEntity.kt` — línea 7
+
+**Código:**
+```kotlin
+class EpisodeEntity(
+    @PrimaryKey val id: Int,
+    ...
+)
+```
+
+Las entidades de Room que se usan con Paging 3 tienen que ser `data class`. Sin eso no se generan `equals()` ni `hashCode()`, y el sistema de diff de Paging no sabe qué cambió en la lista.
+
+**Fix:**
+```kotlin
+data class EpisodeEntity(
+    @PrimaryKey val id: Int,
+    ...
+)
+```
+
+---
+
+## Error 3 — `class` en vez de `data class` en `RemoteKeyEntity`
+**Archivo:** `data/local/entity/RemoteKeyEntity.kt` — línea 7
+
+Mismo problema que el Error 2. Las entidades de Room necesitan `data class`.
+
+**Fix:**
+```kotlin
+data class RemoteKeyEntity(
+    @PrimaryKey val episodeId: Int,
+    ...
+)
+```
+
+---
+
+## Error 4 — Método con nombre en snake_case en la interfaz
+**Archivo:** `domain/repository/EpisodeRepository.kt` — línea 8
+
+**Código:**
+```kotlin
+fun get_episodes(): Flow<PagingData<Episode>>
+```
+
+En Kotlin los métodos van en camelCase, no en snake_case. Además este nombre no coincide con el que usa la implementación, lo que genera otro error de compilación aparte (ver Error 5).
+
+**Fix:**
+```kotlin
+fun getEpisodes(): Flow<PagingData<Episode>>
+```
+
+---
+
+## Error 5 — El `override` no coincide con lo que declara la interfaz
+**Archivo:** `data/repository/EpisodeRepositoryImpl.kt` — línea 23
+
+**Código:**
+```kotlin
+// La interfaz tiene: fun get_episodes()
+// La implementación tiene:
+override fun getEpisodes(): Flow<PagingData<Episode>> {
+```
+
+`getEpisodes()` no existe en la interfaz, así que el `override` no encuentra nada que sobrescribir. Falla en compilación.
+
+**Fix:** cambiar el nombre en la interfaz a `getEpisodes()` (Error 4) y dejar la implementación como está.
+
+---
+
+## Error 6 — Falta el import de `SimpsonsApi`
+**Archivo:** `data/repository/EpisodeRepositoryImpl.kt` — sección de imports
+
+**Código:**
+```kotlin
+import com.example.simpsonsapp.data.remote.EpisodeRemoteMediator
+// falta: import com.example.simpsonsapp.data.remote.SimpsonsApi
+
+class EpisodeRepositoryImpl @Inject constructor(
+    private val simpsonsApi: SimpsonsApi,   // referencia sin resolver
+```
+
+`SimpsonsApi` está en `data.remote` y este archivo está en `data.repository`. Son paquetes distintos, así que sin el import el compilador no la encuentra.
+
+**Fix:** agregar:
+```kotlin
+import com.example.simpsonsapp.data.remote.SimpsonsApi
+```
+
+---
+
+## Error 7 — Falta el `baseUrl` en Retrofit
+**Archivo:** `di/DataModule.kt` — líneas 34–38
+
+**Código:**
+```kotlin
+return Retrofit.Builder()
+    .client(client)
+    .addConverterFactory(GsonConverterFactory.create())
+    .build()   // falta el .baseUrl() antes de acá
+    .create(SimpsonsApi::class.java)
+```
+
+Retrofit lanza `IllegalStateException: Base URL required` si no se le pone una URL base antes del `.build()`. La app explota al arrancar cuando Hilt trata de construir la dependencia.
+
+**Fix:**
+```kotlin
+return Retrofit.Builder()
+    .client(client)
+    .baseUrl("https://thesimpsonsapi.com/")
+    .addConverterFactory(GsonConverterFactory.create())
+    .build()
+    .create(SimpsonsApi::class.java)
+```
+
+---
+
+## Error 8 — URL completa dentro del `@GET`
+**Archivo:** `data/remote/EpisodeRemoteMediator.kt` — línea 106
+
+**Código:**
+```kotlin
+@GET("https://thesimpsonsapi.com/api/episodes")
+suspend fun getEpisodes(@Query("page") page: Int): EpisodesResponse
+```
+
+Con Retrofit la idea es poner la URL base una sola vez en el builder, y en los `@GET` solo la ruta relativa. Poner la URL entera en la anotación rompe esa separación.
+
+**Fix:**
+```kotlin
+@GET("api/episodes")
+suspend fun getEpisodes(@Query("page") page: Int): EpisodesResponse
+```
+
+---
+
+## Error 9 — `LazyRow` en vez de `LazyColumn`
+**Archivo:** `main/MainScreen.kt` — línea 119
+
+**Código:**
+```kotlin
+LazyRow(
+    state = listState,
+    modifier = Modifier.fillMaxSize()
+) {
+```
+
+`LazyRow` hace scroll horizontal. Una lista de episodios tendría que ir para abajo, no para el costado.
+
+**Fix:**
+```kotlin
+LazyColumn(
+    state = listState,
+    modifier = Modifier.fillMaxSize()
+) {
+```
+
+---
+
+## Error 10 — Imports con wildcard que no sirven para nada
+**Archivo:** `AppNavigation.kt` — líneas 9–10
+
+**Código:**
+```kotlin
+import androidx.navigation.*    // redundante, las clases necesarias ya están importadas arriba
+import androidx.compose.*       // este paquete no tiene clases directas, importa nada
+```
+
+El primero es redundante porque todas las clases de `androidx.navigation` que se usan ya estaban importadas de forma explícita. El segundo no importa nada útil porque `androidx.compose` no es un paquete hoja, todas las clases están en subpaquetes.
+
+**Fix:** eliminar esas dos líneas.
+
+---
+
+## Error 11 — JDK hardcodeado en `gradle.properties`
+**Archivo:** `gradle.properties` — línea 32
+
+**Código:**
+```properties
+org.gradle.java.home=/opt/homebrew/Cellar/openjdk@17/17.0.15/libexec/openjdk.jdk/Contents/Home
+```
+
+Esta ruta es específica de la máquina donde se armó el proyecto. En cualquier otra computadora esa ruta no existe y Gradle tira el error:
+```
+Value '...' given for org.gradle.java.home Gradle property is invalid
+```
+
+**Fix:** borrar la línea 32. Cada dev configura su JDK desde Android Studio (File > Project Structure > SDK Location) o Gradle lo detecta solo.
+
+---
+
+## Resumen
+
+| # | Archivo | Línea | Error |
+|---|---------|-------|-------|
+| 1 | `domain/model/Episode.kt` | 13–15 | `init` fuera de la clase |
+| 2 | `data/local/entity/EpisodeEntity.kt` | 7 | `class` en vez de `data class` |
+| 3 | `data/local/entity/RemoteKeyEntity.kt` | 7 | `class` en vez de `data class` |
+| 4 | `domain/repository/EpisodeRepository.kt` | 8 | Método en snake_case |
+| 5 | `data/repository/EpisodeRepositoryImpl.kt` | 23 | `override` no coincide con la interfaz |
+| 6 | `data/repository/EpisodeRepositoryImpl.kt` | imports | Falta `import SimpsonsApi` |
+| 7 | `di/DataModule.kt` | 34–38 | Falta `.baseUrl()` en Retrofit |
+| 8 | `data/remote/EpisodeRemoteMediator.kt` | 106 | URL completa en `@GET` |
+| 9 | `main/MainScreen.kt` | 119 | `LazyRow` en vez de `LazyColumn` |
+| 10 | `AppNavigation.kt` | 9–10 | Imports wildcard inútiles |
+| 11 | `gradle.properties` | 32 | JDK hardcodeado con ruta absoluta |
+
