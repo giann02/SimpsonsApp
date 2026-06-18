@@ -1,13 +1,13 @@
-2do Parcial - Parte Practica
-
 # SimpsonsApp — Errores encontrados
 
 **Alumno:** Panigatti Gianluca  
-**Errores encontrados:** 11 (10 de código + 1 de configuración)
+**Errores encontrados:** 12
 
 ---
 
-## Error 1 — Bloque `init` fuera de la clase
+## Errores que impiden compilar el app
+
+### Error 1 — Bloque `init` fuera de la clase
 **Archivo:** `domain/model/Episode.kt` — líneas 13–15
 
 **Código:**
@@ -28,62 +28,7 @@ El bloque `init` en Kotlin solo va adentro de una clase, no afuera. Como está p
 
 ---
 
-## Error 2 — `class` en vez de `data class` en `EpisodeEntity`
-**Archivo:** `data/local/entity/EpisodeEntity.kt` — línea 7
-
-**Código:**
-```kotlin
-class EpisodeEntity(
-    @PrimaryKey val id: Int,
-    ...
-)
-```
-
-Las entidades de Room que se usan con Paging 3 tienen que ser `data class`. Sin eso no se generan `equals()` ni `hashCode()`, y el sistema de diff de Paging no sabe qué cambió en la lista.
-
-**Fix:**
-```kotlin
-data class EpisodeEntity(
-    @PrimaryKey val id: Int,
-    ...
-)
-```
-
----
-
-## Error 3 — `class` en vez de `data class` en `RemoteKeyEntity`
-**Archivo:** `data/local/entity/RemoteKeyEntity.kt` — línea 7
-
-Mismo problema que el Error 2. Las entidades de Room necesitan `data class`.
-
-**Fix:**
-```kotlin
-data class RemoteKeyEntity(
-    @PrimaryKey val episodeId: Int,
-    ...
-)
-```
-
----
-
-## Error 4 — Método con nombre en snake_case en la interfaz
-**Archivo:** `domain/repository/EpisodeRepository.kt` — línea 8
-
-**Código:**
-```kotlin
-fun get_episodes(): Flow<PagingData<Episode>>
-```
-
-En Kotlin los métodos van en camelCase, no en snake_case. Además este nombre no coincide con el que usa la implementación, lo que genera otro error de compilación aparte (ver Error 5).
-
-**Fix:**
-```kotlin
-fun getEpisodes(): Flow<PagingData<Episode>>
-```
-
----
-
-## Error 5 — El `override` no coincide con lo que declara la interfaz
+### Error 2 — El `override` no coincide con lo que declara la interfaz
 **Archivo:** `data/repository/EpisodeRepositoryImpl.kt` — línea 23
 
 **Código:**
@@ -95,11 +40,11 @@ override fun getEpisodes(): Flow<PagingData<Episode>> {
 
 `getEpisodes()` no existe en la interfaz, así que el `override` no encuentra nada que sobrescribir. Falla en compilación.
 
-**Fix:** cambiar el nombre en la interfaz a `getEpisodes()` (Error 4) y dejar la implementación como está.
+**Fix:** cambiar el nombre en la interfaz a `getEpisodes()` (ver Error 5) y dejar la implementación como está.
 
 ---
 
-## Error 6 — Falta el import de `SimpsonsApi`
+### Error 3 — Falta el import de `SimpsonsApi`
 **Archivo:** `data/repository/EpisodeRepositoryImpl.kt` — sección de imports
 
 **Código:**
@@ -120,7 +65,9 @@ import com.example.simpsonsapp.data.remote.SimpsonsApi
 
 ---
 
-## Error 7 — Falta el `baseUrl` en Retrofit
+## Error que crashea en runtime
+
+### Error 4 — Falta el `baseUrl` en Retrofit
 **Archivo:** `di/DataModule.kt` — líneas 34–38
 
 **Código:**
@@ -146,7 +93,108 @@ return Retrofit.Builder()
 
 ---
 
-## Error 8 — URL completa dentro del `@GET`
+## Error de comportamiento incorrecto
+
+### Error 5 — `LazyRow` en vez de `LazyColumn`
+**Archivo:** `main/MainScreen.kt` — línea 119
+
+**Código:**
+```kotlin
+LazyRow(
+    state = listState,
+    modifier = Modifier.fillMaxSize()
+) {
+```
+
+`LazyRow` hace scroll horizontal. Por lo general una lista de episodios se espera que scrollee verticalmente, por lo que lo más apropiado sería usar `LazyColumn`.
+
+**Fix:**
+```kotlin
+LazyColumn(
+    state = listState,
+    modifier = Modifier.fillMaxSize()
+) {
+```
+
+---
+
+## Error de configuración
+
+### Error 6 — JDK hardcodeado en `gradle.properties`
+**Archivo:** `gradle.properties` — línea 32
+
+**Código:**
+```properties
+org.gradle.java.home=/opt/homebrew/Cellar/openjdk@17/17.0.15/libexec/openjdk.jdk/Contents/Home
+```
+
+Esta ruta es específica de la máquina donde se armó el proyecto. En cualquier otra computadora esa ruta no existe y Gradle tira el error:
+```
+Value '...' given for org.gradle.java.home Gradle property is invalid
+```
+
+**Fix:** borrar la línea 32. Cada dev configura su JDK desde Android Studio (File > Project Structure > SDK Location) o Gradle lo detecta solo.
+
+---
+
+## Errores de práctica incorrecta
+
+### Error 7 — `class` en vez de `data class` en `EpisodeEntity`
+**Archivo:** `data/local/entity/EpisodeEntity.kt` — línea 7
+
+**Código:**
+```kotlin
+class EpisodeEntity(
+    @PrimaryKey val id: Int,
+    ...
+)
+```
+
+Las entidades de Room que se usan con Paging 3 tienen que ser `data class`. Sin eso no se generan `equals()` ni `hashCode()`, y el sistema de diff de Paging no sabe qué cambió en la lista.
+
+**Fix:**
+```kotlin
+data class EpisodeEntity(
+    @PrimaryKey val id: Int,
+    ...
+)
+```
+
+---
+
+### Error 8 — `class` en vez de `data class` en `RemoteKeyEntity`
+**Archivo:** `data/local/entity/RemoteKeyEntity.kt` — línea 7
+
+Mismo problema que el Error 7. Las entidades de Room necesitan `data class`.
+
+**Fix:**
+```kotlin
+data class RemoteKeyEntity(
+    @PrimaryKey val episodeId: Int,
+    ...
+)
+```
+
+---
+
+### Error 9 — Método con nombre en snake_case en la interfaz
+**Archivo:** `domain/repository/EpisodeRepository.kt` — línea 8
+
+**Código:**
+```kotlin
+fun get_episodes(): Flow<PagingData<Episode>>
+```
+
+En Kotlin los métodos van en camelCase, no en snake_case. Además este nombre no coincide con el que usa la implementación, lo que genera el Error 2.
+
+**Fix:**
+```kotlin
+fun getEpisodes(): Flow<PagingData<Episode>>
+```
+
+---
+
+### Error 10 — URL completa dentro del `@GET`
 **Archivo:** `data/remote/EpisodeRemoteMediator.kt` — línea 106
 
 **Código:**
@@ -165,30 +213,9 @@ suspend fun getEpisodes(@Query("page") page: Int): EpisodesResponse
 
 ---
 
-## Error 9 — `LazyRow` en vez de `LazyColumn`
-**Archivo:** `main/MainScreen.kt` — línea 119
+## Observaciones adicionales
 
-**Código:**
-```kotlin
-LazyRow(
-    state = listState,
-    modifier = Modifier.fillMaxSize()
-) {
-```
-
-`LazyRow` hace scroll horizontal. Una lista de episodios tendría que ir para abajo, no para el costado.
-
-**Fix:**
-```kotlin
-LazyColumn(
-    state = listState,
-    modifier = Modifier.fillMaxSize()
-) {
-```
-
----
-
-## Error 10 — Imports con wildcard que no sirven para nada
+### Error 11 — Imports con wildcard que no sirven para nada
 **Archivo:** `AppNavigation.kt` — líneas 9–10
 
 **Código:**
@@ -203,20 +230,35 @@ El primero es redundante porque todas las clases de `androidx.navigation` que se
 
 ---
 
-## Error 11 — JDK hardcodeado en `gradle.properties`
-**Archivo:** `gradle.properties` — línea 32
+### Error 12 — Parámetro incorrecto al llamar `MainScreen` en el test
+**Archivo:** `androidTest/java/com/example/simpsonsapp/ui/main/MainScreenTest.kt` — línea 18
 
 **Código:**
-```properties
-org.gradle.java.home=/opt/homebrew/Cellar/openjdk@17/17.0.15/libexec/openjdk.jdk/Contents/Home
+```kotlin
+private val FAKE_DATA = listOf("Sample1", "Sample2", "Sample3")
+
+@Before
+fun setup() {
+    composeTestRule.setContent { MainScreen(FAKE_DATA) }
+}
 ```
 
-Esta ruta es específica de la máquina donde se armó el proyecto. En cualquier otra computadora esa ruta no existe y Gradle tira el error:
-```
-Value '...' given for org.gradle.java.home Gradle property is invalid
+`MainScreen` tiene esta firma:
+```kotlin
+fun MainScreen(
+    onNavigateToDetail: (Int) -> Unit,
+    viewModel: MainViewModel = hiltViewModel()
+)
 ```
 
-**Fix:** borrar la línea 32. Cada dev configura su JDK desde Android Studio (File > Project Structure > SDK Location) o Gradle lo detecta solo.
+El primer parámetro tiene que ser una función `(Int) -> Unit`, no un `List<String>`. No compila el módulo de tests instrumentados.
+
+**Fix:**
+```kotlin
+composeTestRule.setContent {
+    MainScreen(onNavigateToDetail = { })
+}
+```
 
 ---
 
@@ -225,14 +267,14 @@ Value '...' given for org.gradle.java.home Gradle property is invalid
 | # | Archivo | Línea | Error |
 |---|---------|-------|-------|
 | 1 | `domain/model/Episode.kt` | 13–15 | `init` fuera de la clase |
-| 2 | `data/local/entity/EpisodeEntity.kt` | 7 | `class` en vez de `data class` |
-| 3 | `data/local/entity/RemoteKeyEntity.kt` | 7 | `class` en vez de `data class` |
-| 4 | `domain/repository/EpisodeRepository.kt` | 8 | Método en snake_case |
-| 5 | `data/repository/EpisodeRepositoryImpl.kt` | 23 | `override` no coincide con la interfaz |
-| 6 | `data/repository/EpisodeRepositoryImpl.kt` | imports | Falta `import SimpsonsApi` |
-| 7 | `di/DataModule.kt` | 34–38 | Falta `.baseUrl()` en Retrofit |
-| 8 | `data/remote/EpisodeRemoteMediator.kt` | 106 | URL completa en `@GET` |
-| 9 | `main/MainScreen.kt` | 119 | `LazyRow` en vez de `LazyColumn` |
-| 10 | `AppNavigation.kt` | 9–10 | Imports wildcard inútiles |
-| 11 | `gradle.properties` | 32 | JDK hardcodeado con ruta absoluta |
-
+| 2 | `data/repository/EpisodeRepositoryImpl.kt` | 23 | `override` no coincide con la interfaz |
+| 3 | `data/repository/EpisodeRepositoryImpl.kt` | imports | Falta `import SimpsonsApi` |
+| 4 | `di/DataModule.kt` | 34–38 | Falta `.baseUrl()` en Retrofit |
+| 5 | `main/MainScreen.kt` | 119 | `LazyRow` en vez de `LazyColumn` |
+| 6 | `gradle.properties` | 32 | JDK hardcodeado con ruta absoluta |
+| 7 | `data/local/entity/EpisodeEntity.kt` | 7 | `class` en vez de `data class` |
+| 8 | `data/local/entity/RemoteKeyEntity.kt` | 7 | `class` en vez de `data class` |
+| 9 | `domain/repository/EpisodeRepository.kt` | 8 | Método en snake_case |
+| 10 | `data/remote/EpisodeRemoteMediator.kt` | 106 | URL completa en `@GET` |
+| 11 | `AppNavigation.kt` | 9–10 | Imports wildcard inútiles |
+| 12 | `androidTest/.../MainScreenTest.kt` | 18 | Parámetro de tipo incorrecto en `MainScreen()` |
